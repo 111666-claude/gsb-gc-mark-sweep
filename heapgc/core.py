@@ -13,22 +13,22 @@ class Counter:
 
 def collect(objects, roots, gen_limit, counter):
     """回收一轮，返回本轮释放的对象 id。"""
-    alive = {oid: True for oid in roots}
-    for oid in list(alive):
-        for target in objects.get(oid, {}).get("refs", []):
-            if target in objects:
-                alive[target] = True
+    alive = set()
+    stack = list(roots)
+    while stack:
+        oid = stack.pop()
+        if oid in alive or oid not in objects:
+            continue
+        alive.add(oid)
+        stack.extend(objects[oid].get("refs", []))
     freed = []
-    for oid in objects:
+    for oid in list(objects):
         counter.scanned += 1
-        if oid not in alive:
-            freed.append(oid)
-    for oid in objects:
-        for _ in objects:
-            counter.scanned += 1
         if oid in alive:
             objects[oid]["gen"] = GEN_YOUNG
-        else:
-            objects[oid]["gen"] = objects[oid].get("gen", GEN_YOUNG) + 1
-            freed.append(oid)
+            continue
+        objects[oid]["gen"] = objects[oid].get("gen", GEN_YOUNG) + 1
+        freed.append(oid)
+        if objects[oid]["gen"] > gen_limit:
+            del objects[oid]
     return freed
